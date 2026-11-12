@@ -826,3 +826,10 @@ class TestTrajNationaleRemplacee:
         assert out.set_index("annee")["valeur_nationale"].to_dict() == {2020: 10.0, 2050: 2.0}
         with pytest.raises(ValueError, match="GUYANE"):
             trajectoire_zone({"emi_dech"}, "GUYANE", pd.DataFrame())
+
+
+def test_dju_variante_inconnue():
+    """Une variante inconnue lève une erreur au lieu d'un facteur DJU de 1."""
+    from pipeline.territorialize import compute_dju_factors
+    with pytest.raises(ValueError, match="variante de DJU inconnue"):
+        compute_dju_factors(pd.DataFrame(), "HEXAGONE", dju_variant="costic")
