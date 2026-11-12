@@ -9,6 +9,8 @@ dans docs/resultats_territorialises.md) plutôt qu'un mapping vers un schéma
 applicatif propre à la plateforme d'accueil.
 """
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -21,7 +23,8 @@ class OverrideItem(BaseModel):
 class TerritorializationRequest(BaseModel):
     annee: int | None = Field(default=None, description="Année de référence (défaut : ANNEE_REF)")
     overrides: list[OverrideItem] = Field(default_factory=list)
-    dju_variant: str | None = None
+    dju_variant: Literal["COSTIC", "METEO"] | None = Field(
+        default=None, description="Méthode de calcul des DJU (défaut : TERR_DJU_VARIANT)")
 
 
 class TerritorializationRow(BaseModel):
