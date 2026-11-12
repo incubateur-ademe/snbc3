@@ -182,7 +182,8 @@ class TestClasseurMaitreOpenpyxl:
     """
 
     @pytest.fixture(scope="class")
-    def parts(self):
+    @classmethod
+    def parts(cls):
         import zipfile
 
         from config.settings import TRAJ_GES_TEMPLATE
