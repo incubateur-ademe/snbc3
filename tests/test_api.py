@@ -149,6 +149,11 @@ class TestTerritorialisationAvecOverride:
         )
         assert r.status_code == 422
 
+    def test_dju_variant_inconnue_422(self, client):
+        """Une variante inconnue désactivait la correction DJU sans erreur (facteur 1)."""
+        r = client.post(f"/territorialisation/{CODE_EPCI}", json={"dju_variant": "costic\nFAUX"})
+        assert r.status_code == 422
+
 
 class TestAuth:
     def test_cle_api_manquante_401(self, client):
