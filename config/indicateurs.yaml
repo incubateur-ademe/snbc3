@@ -1,0 +1,593 @@
+# config/indicateurs.yaml
+# ========================
+# Catalogue officiel des indicateurs produits dans bdd_epci.parquet.
+#
+# Champs de chaque entrée :
+#   code          : identifiant unique (valeur de la colonne code_indicateur)
+#   libelle       : label lisible pour affichage / rapport
+#   unite         : unité de la valeur
+#   source        : identifiant de la source (correspond au module sources/)
+#   thematique    : regroupement thématique
+#   methode       : méthode d'agrégation commune→EPCI ou de calcul
+#                   - somme_communes      : somme des valeurs communales
+#                   - moyenne_pond_pop    : moyenne pondérée par la population
+#                   - donnee_directe_epci : donnée déjà à l'échelle EPCI
+#                   - IDW_stations        : interpolation spatiale IDW depuis stations MF
+#   annees_disponibles : liste d'années connues (indicative)
+#   code_source   : code de la variable dans le fichier source (optionnel)
+#
+# Convention de nommage des codes :
+#   - Majuscules, underscores
+#   - Sans suffixe d'année (l'année est une dimension séparée dans le CSV)
+
+indicateurs:
+
+  # -------------------------------------------------------------------------
+  # DÉMOGRAPHIE
+  # -------------------------------------------------------------------------
+
+  - code: POP
+    libelle: "Population municipale"
+    unite: "habitants"
+    source: INSEE_RP
+    thematique: demographie
+    methode: somme_communes
+    annees_disponibles: [2014, 2015, 2019, 2020, 2021]
+    code_source: "P{aa}_POP"
+
+  - code: MEN
+    libelle: "Nombre de ménages"
+    unite: "ménages"
+    source: INSEE_RP
+    thematique: demographie
+    methode: somme_communes
+    annees_disponibles: [2014, 2015, 2019, 2020, 2021]
+    code_source: "C{aa}_MEN"
+
+  - code: RP_MAISON
+    libelle: "Résidences principales - maisons"
+    unite: "logements"
+    source: INSEE_RP
+    thematique: logement
+    methode: somme_communes
+    code_source: "P{aa}_RPMAISON"
+
+  - code: RP_APPART
+    libelle: "Résidences principales - appartements"
+    unite: "logements"
+    source: INSEE_RP
+    thematique: logement
+    methode: somme_communes
+    code_source: "P{aa}_RPAPPART"
+
+  - code: RP
+    libelle: "Résidences principales (total)"
+    unite: "logements"
+    source: INSEE_RP
+    thematique: logement
+    methode: calcul_derive
+    formule: "RP_MAISON + RP_APPART"
+
+
+  # -------------------------------------------------------------------------
+  # ÉCONOMIE
+  # -------------------------------------------------------------------------
+
+  - code: EMP_CTS
+    libelle: "Emplois commerce, transports et services hors administration"
+    unite: "emplois"
+    source: INSEE_RP
+    thematique: economie
+    methode: somme_communes
+    code_source: "C{aa}_ACTOCC15P_CS3"
+
+  - code: EMP_APESAS
+    libelle: "Emplois administration, enseignement, santé, action sociale"
+    unite: "emplois"
+    source: INSEE_RP
+    thematique: economie
+    methode: somme_communes
+    code_source: "C{aa}_ACTOCC15P_CS5"
+
+  - code: EMP_TER
+    libelle: "Emplois tertiaires (commerce, transports, services et administration)"
+    unite: "emplois"
+    source: INSEE_RP
+    thematique: economie
+    methode: calcul_derive
+    formule: "EMP_CTS + EMP_APESAS"
+
+  # -------------------------------------------------------------------------
+  # INDUSTRIE (FLORES INSEE)
+  # -------------------------------------------------------------------------
+
+  - code: EMP_IND_METAUX
+    libelle: "Emplois industrie - Métaux primaires"
+    unite: "emplois"
+    source: FLORES
+    thematique: industrie
+    methode: somme_communes
+    annees_disponibles: [2017, 2019, 2020]
+
+  - code: EMP_IND_CHIMIE
+    libelle: "Emplois industrie - Chimie"
+    unite: "emplois"
+    source: FLORES
+    thematique: industrie
+    methode: somme_communes
+
+  - code: EMP_IND_NONMET
+    libelle: "Emplois industrie - Minéraux non métalliques"
+    unite: "emplois"
+    source: FLORES
+    thematique: industrie
+    methode: somme_communes
+
+  - code: EMP_IND_IAA
+    libelle: "Emplois industrie - Industries alimentaires (IAA)"
+    unite: "emplois"
+    source: FLORES
+    thematique: industrie
+    methode: somme_communes
+
+  - code: EMP_IND_EQUIP
+    libelle: "Emplois industrie - Équipements"
+    unite: "emplois"
+    source: FLORES
+    thematique: industrie
+    methode: somme_communes
+
+  - code: EMP_IND_PAPIER
+    libelle: "Emplois industrie - Papier-carton"
+    unite: "emplois"
+    source: FLORES
+    thematique: industrie
+    methode: somme_communes
+
+  - code: EMP_IND_CONST
+    libelle: "Emplois industrie - Construction"
+    unite: "emplois"
+    source: FLORES
+    thematique: industrie
+    methode: somme_communes
+
+  - code: EMP_IND_AUTRES
+    libelle: "Emplois industrie - Autres industries"
+    unite: "emplois"
+    source: FLORES
+    thematique: industrie
+    methode: somme_communes
+
+  - code: EMP_IND
+    libelle: "Emplois industrie - Total"
+    unite: "emplois"
+    source: FLORES
+    thematique: industrie
+    methode: calcul_derive
+    formule: "EMP_IND_METAUX + EMP_IND_CHIMIE + EMP_IND_NONMET + EMP_IND_IAA + EMP_IND_EQUIP + EMP_IND_PAPIER + EMP_IND_CONST + EMP_IND_AUTRES"
+
+  # -------------------------------------------------------------------------
+  # AGRICULTURE (RPG 2020 + Recensement Agricole 2020, retraitement Solagro)
+  # -------------------------------------------------------------------------
+
+  - code: SAU
+    libelle: "Superficie agricole utilisée"
+    unite: "ha"
+    source: AGRESTE_RA
+    thematique: agriculture
+    methode: somme_communes
+    annees_disponibles: [2020]
+
+  - code: CHEPTEL_BOVINS
+    libelle: "Cheptel bovins (têtes)"
+    unite: "têtes"
+    source: AGRESTE_RA
+    thematique: agriculture
+    methode: somme_communes
+    annees_disponibles: [2020]
+
+  - code: CHEPTEL_PORCINS
+    libelle: "Cheptel porcins (têtes)"
+    unite: "têtes"
+    source: AGRESTE_RA
+    thematique: agriculture
+    methode: somme_communes
+    annees_disponibles: [2020]
+
+  - code: CHEPTEL_VOLAILLES
+    libelle: "Cheptel volailles (têtes)"
+    unite: "têtes"
+    source: AGRESTE_RA
+    thematique: agriculture
+    methode: somme_communes
+    annees_disponibles: [2020]
+
+  - code: CHEPTEL_UGB
+    libelle: "Cheptel total, tous élevages (unités gros bétail)"
+    unite: "UGB"
+    source: AGRESTE_RA
+    thematique: agriculture
+    methode: somme_communes
+    annees_disponibles: [2020]
+
+  - code: CULT_SURF_TOTALE
+    libelle: "Surface cultivée (toutes cultures)"
+    unite: "ha"
+    source: AGRESTE_RA
+    thematique: agriculture
+    methode: somme_communes
+    annees_disponibles: [2020]
+
+  - code: CULT_SURF_NON_BIO
+    libelle: "Surface cultivée non bio"
+    unite: "ha"
+    source: AGRESTE_RA
+    thematique: agriculture
+    methode: somme_communes
+    annees_disponibles: [2020]
+
+  - code: SURF_PRAIRIES
+    libelle: "Surface en prairies"
+    unite: "ha"
+    source: AGRESTE_RA
+    thematique: agriculture
+    methode: somme_communes
+    annees_disponibles: [2020]
+
+  # -------------------------------------------------------------------------
+  # CLIMATIQUE (Météo-France - DJU annuels)
+  # -------------------------------------------------------------------------
+
+  - code: DJU_CHAUD_METEO
+    libelle: "Degrés-Jours Unifiés chauffage (méthode Météo, seuil 17 °C)"
+    unite: "°C·jour"
+    source: METEO_FRANCE
+    thematique: climatique
+    methode: moyenne_pond_pop
+    # IDW depuis stations MF vers centroïde EPCI, puis moyenne pondérée pour agrégats FR/hexagone/DROM
+    seuil_ref_c: 17.0  # SDES mars 2025 (cf. sources/dju.py)
+    annees_disponibles: [1996, 2024]  # plage historique
+
+  - code: DJU_FROID_METEO
+    libelle: "Degrés-Jours Unifiés climatisation (méthode Météo, seuil 21 °C)"
+    unite: "°C·jour"
+    source: METEO_FRANCE
+    thematique: climatique
+    methode: moyenne_pond_pop
+    seuil_ref_c: 21.0  # SDES mars 2025 (cf. sources/dju.py)
+
+  - code: DJU_CHAUD_COSTIC
+    libelle: "Degrés-Jours Unifiés chauffage (méthode COSTIC, seuil 17 °C)"
+    unite: "°C·jour"
+    source: METEO_FRANCE
+    thematique: climatique
+    methode: moyenne_pond_pop
+    seuil_ref_c: 17.0  # SDES mars 2025 (cf. sources/dju.py)
+
+  - code: DJU_FROID_COSTIC
+    libelle: "Degrés-Jours Unifiés climatisation (méthode COSTIC, seuil 21 °C)"
+    unite: "°C·jour"
+    source: METEO_FRANCE
+    thematique: climatique
+    methode: moyenne_pond_pop
+    seuil_ref_c: 21.0  # SDES mars 2025 (cf. sources/dju.py)
+
+  # -------------------------------------------------------------------------
+  # MOBILITÉ DOMICILE-TRAVAIL (INSEE × SDES - source officielle)
+  # Émissions et consommations individuelles estimées par commune de résidence,
+  # agrégées depuis les données de navettage du recensement de la population.
+  # Périmètre : déplacements domicile-travail, tous modes motorisés.
+  # -------------------------------------------------------------------------
+
+  - code: MOB_DT_EMISSIONS
+    libelle: "Émissions GES mobilité domicile-travail"
+    unite: "ktCO2e/an"
+    source: MOBILITE_DT
+    thematique: mobilite
+    methode: somme_communes
+    annees_disponibles: [2019, 2021, 2022]
+
+  - code: MOB_DT_CONSO_FINALE
+    libelle: "Consommation finale mobilité domicile-travail"
+    unite: "GWh/an"
+    source: MOBILITE_DT
+    thematique: mobilite
+    methode: somme_communes
+    annees_disponibles: [2019, 2021, 2022]
+
+  # -------------------------------------------------------------------------
+  # PARC DE VÉHICULES ROUTIERS (SDES - RSVERO, données communales publiques,
+  # jeu data.gouv « parc-de-vehicules-routiers »)
+  # Nombre de véhicules immatriculés au 1er janvier de l'année, par commune.
+  # Catégories : VP (voitures particulières), VUL (utilitaires légers),
+  #              PL (poids lourds / camions), BUS (autobus et autocars).
+  # -------------------------------------------------------------------------
+
+  - code: PARC_VP
+    libelle: "Parc de voitures particulières"
+    unite: "véhicules"
+    source: PARC_VEHICULES
+    thematique: mobilite
+    methode: somme_communes
+
+  - code: PARC_VUL
+    libelle: "Parc de véhicules utilitaires légers"
+    unite: "véhicules"
+    source: PARC_VEHICULES
+    thematique: mobilite
+    methode: somme_communes
+
+  - code: PARC_PL
+    libelle: "Parc de poids lourds"
+    unite: "véhicules"
+    source: PARC_VEHICULES
+    thematique: mobilite
+    methode: somme_communes
+
+  - code: PARC_BUS
+    libelle: "Parc de bus et autocars"
+    unite: "véhicules"
+    source: PARC_VEHICULES
+    thematique: mobilite
+    methode: somme_communes
+
+  # -------------------------------------------------------------------------
+  # ÉNERGIE-CLIMAT (OREC/BOM - DATA-Observatoires, approche cadastrale)
+  # Données directement à l'échelle EPCI, pas d'agrégation commune→EPCI.
+  # -------------------------------------------------------------------------
+
+  # -- Consommations d'énergie finale (GWh) --
+
+  - code: EC_CONSO_RESIDENTIEL
+    libelle: "Consommation d'énergie finale - Résidentiel"
+    unite: "GWh"
+    source: ENERGIE_CLIMAT
+    thematique: energie_climat
+    methode: donnee_directe_epci
+    code_source: "0201.0101"
+    annees_disponibles: [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
+
+  - code: EC_CONSO_TERTIAIRE
+    libelle: "Consommation d'énergie finale - Tertiaire"
+    unite: "GWh"
+    source: ENERGIE_CLIMAT
+    thematique: energie_climat
+    methode: donnee_directe_epci
+    code_source: "0201.0102"
+    annees_disponibles: [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
+
+  - code: EC_CONSO_INDUSTRIE
+    libelle: "Consommation d'énergie finale - Industrie"
+    unite: "GWh"
+    source: ENERGIE_CLIMAT
+    thematique: energie_climat
+    methode: donnee_directe_epci
+    code_source: "0201.0107"
+    annees_disponibles: [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
+
+  - code: EC_CONSO_AGRICULTURE
+    libelle: "Consommation d'énergie finale - Agriculture"
+    unite: "GWh"
+    source: ENERGIE_CLIMAT
+    thematique: energie_climat
+    methode: donnee_directe_epci
+    code_source: "0201.0103"
+    annees_disponibles: [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
+
+  - code: EC_CONSO_TRANSPORT_ROUTIER
+    libelle: "Consommation d'énergie finale - Transport routier"
+    unite: "GWh"
+    source: ENERGIE_CLIMAT
+    thematique: energie_climat
+    methode: donnee_directe_epci
+    code_source: "0201.0105"
+    annees_disponibles: [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
+
+  - code: EC_CONSO_AUTRE_TRANSPORT
+    libelle: "Consommation d'énergie finale - Autres transports"
+    unite: "GWh"
+    source: ENERGIE_CLIMAT
+    thematique: energie_climat
+    methode: donnee_directe_epci
+    code_source: "0201.0106"
+    annees_disponibles: [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
+
+  - code: EC_CONSO_DECHETS
+    libelle: "Consommation d'énergie finale - Déchets"
+    unite: "GWh"
+    source: ENERGIE_CLIMAT
+    thematique: energie_climat
+    methode: donnee_directe_epci
+    code_source: "0201.0110"
+    annees_disponibles: [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
+
+  - code: EC_CONSO_TOTAL
+    libelle: "Consommation d'énergie finale - Tous secteurs"
+    unite: "GWh"
+    source: ENERGIE_CLIMAT
+    thematique: energie_climat
+    methode: donnee_directe_epci
+    code_source: "0201.0100"
+    annees_disponibles: [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
+
+  # -- Émissions de GES Scope 1&2 (kteq CO2) --
+
+  - code: EC_EMIS_RESIDENTIEL
+    libelle: "Émissions GES - Résidentiel"
+    unite: "ktCO2e/an"
+    source: ENERGIE_CLIMAT
+    thematique: energie_climat
+    methode: donnee_directe_epci
+    code_source: "0101.0101"
+    annees_disponibles: [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
+
+  - code: EC_EMIS_TERTIAIRE
+    libelle: "Émissions GES - Tertiaire"
+    unite: "ktCO2e/an"
+    source: ENERGIE_CLIMAT
+    thematique: energie_climat
+    methode: donnee_directe_epci
+    code_source: "0101.0102"
+    annees_disponibles: [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
+
+  - code: EC_EMIS_INDUSTRIE_HORS_BE
+    libelle: "Émissions GES - Industrie hors branche énergie"
+    unite: "ktCO2e/an"
+    source: ENERGIE_CLIMAT
+    thematique: energie_climat
+    methode: donnee_directe_epci
+    code_source: "0101.0108"
+    # Repli sur 0101.0107 (industrie totale) quand 0101.0108 est absent
+    annees_disponibles: [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
+
+  - code: EC_EMIS_BRANCHE_ENERGIE
+    libelle: "Émissions GES - Industrie branche énergie"
+    unite: "ktCO2e/an"
+    source: ENERGIE_CLIMAT
+    thematique: energie_climat
+    methode: donnee_directe_epci
+    code_source: "0101.0109"
+    annees_disponibles: [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
+
+  - code: EC_EMIS_AGRICULTURE
+    libelle: "Émissions GES - Agriculture"
+    unite: "ktCO2e/an"
+    source: ENERGIE_CLIMAT
+    thematique: energie_climat
+    methode: donnee_directe_epci
+    code_source: "0101.0103"
+    annees_disponibles: [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
+
+  - code: EC_EMIS_TRANSPORT_ROUTIER
+    libelle: "Émissions GES - Transport routier"
+    unite: "ktCO2e/an"
+    source: ENERGIE_CLIMAT
+    thematique: energie_climat
+    methode: donnee_directe_epci
+    code_source: "0101.0105"
+    annees_disponibles: [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
+
+  - code: EC_EMIS_AUTRE_TRANSPORT
+    libelle: "Émissions GES - Autres transports"
+    unite: "ktCO2e/an"
+    source: ENERGIE_CLIMAT
+    thematique: energie_climat
+    methode: donnee_directe_epci
+    code_source: "0101.0106"
+    annees_disponibles: [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
+
+  - code: EC_EMIS_DECHETS
+    libelle: "Émissions GES - Déchets"
+    unite: "ktCO2e/an"
+    source: ENERGIE_CLIMAT
+    thematique: energie_climat
+    methode: donnee_directe_epci
+    code_source: "0101.0110"
+    annees_disponibles: [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
+
+  - code: EC_EMIS_TOTAL
+    libelle: "Émissions GES - Tous secteurs"
+    unite: "ktCO2e/an"
+    source: ENERGIE_CLIMAT
+    thematique: energie_climat
+    methode: donnee_directe_epci
+    code_source: "0101.0100"
+    annees_disponibles: [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
+
+  # -------------------------------------------------------------------------
+  # CITEPA IGT - indicateur de diagnostic
+  # Les émissions observées par secteur des EPCI DROM alimentent les codes
+  # EC_EMIS_* ci-dessus (l'OREC ne couvre pas les DROM) ; seul l'indicateur
+  # ci-dessous est propre à l'IGT. Il est hors total inventaire et ne sert ni
+  # de pivot ni de recalage : il documente la part des soutes internationales,
+  # concentrée sur les EPCI portuaires et aéroportuaires.
+  # -------------------------------------------------------------------------
+
+  - code: IGT_EMIS_TRANSPORT_INTL
+    libelle: "Émissions GES - Soutes internationales (diagnostic, hors total)"
+    unite: "ktCO2e/an"
+    source: CITEPA_IGT
+    thematique: energie_climat
+    methode: somme_communes
+
+  # -------------------------------------------------------------------------
+  # UTCATF - ALDO (ADEME - données communales agrégées par EPCI)
+  # Flux de GES liés à l'usage des sols, par catégorie SNBC UTCATF.
+  # Source : ALDO v3 (scripts/extract_aldo.py)
+  # -------------------------------------------------------------------------
+
+  - code: ALDO_UTCATF_FOR
+    libelle: "UTCATF - Forêts (biomasse + CAS)"
+    unite: "ktCO2e/an"
+    source: ALDO
+    thematique: utcatf
+    methode: somme_communes
+
+  - code: ALDO_UTCATF_CULT
+    libelle: "UTCATF - Cultures (CAS)"
+    unite: "ktCO2e/an"
+    source: ALDO
+    thematique: utcatf
+    methode: somme_communes
+
+  - code: ALDO_UTCATF_PRAI
+    libelle: "UTCATF - Prairies (CAS)"
+    unite: "ktCO2e/an"
+    source: ALDO
+    thematique: utcatf
+    methode: somme_communes
+
+  - code: ALDO_UTCATF_ZOHU
+    libelle: "UTCATF - Zones humides (CAS)"
+    unite: "ktCO2e/an"
+    source: ALDO
+    thematique: utcatf
+    methode: somme_communes
+
+  - code: ALDO_UTCATF_ARTI
+    libelle: "UTCATF - Sols artificiels (CAS)"
+    unite: "ktCO2e/an"
+    source: ALDO
+    thematique: utcatf
+    methode: somme_communes
+
+  - code: ALDO_UTCATF_AUT
+    libelle: "UTCATF - Autres terres (CAS vergers/vignes)"
+    unite: "ktCO2e/an"
+    source: ALDO
+    thematique: utcatf
+    methode: somme_communes
+
+  - code: ALDO_UTCATF_PRBO
+    libelle: "UTCATF - Produits bois (approche consommation, reserve)"
+    unite: "ktCO2e/an"
+    source: ALDO
+    thematique: utcatf
+    methode: somme_communes
+
+  - code: ALDO_UTCATF_PRBO_PROD
+    libelle: "UTCATF - Produits bois (approche production/recolte, pivot)"
+    unite: "ktCO2e/an"
+    source: ALDO
+    thematique: utcatf
+    methode: somme_communes
+
+  - code: ALDO_SURF_FORET
+    libelle: "Surface forestière (pivot des sols forestiers hors inventaire)"
+    unite: "ha"
+    source: ALDO
+    thematique: utcatf
+    methode: somme_communes
+
+  # -------------------------------------------------------------------------
+  # PROJECTIONS DÉMOGRAPHIQUES (INSEE Omphale)
+  # -------------------------------------------------------------------------
+
+  - code: POP_PROJ_RATIO
+    libelle: "Évolution démographique projetée (ratio vs année de référence)"
+    unite: "ratio"
+    source: INSEE_OMPHALE
+    thematique: demographie
+    methode: moyenne_pond_pop
+    # Moyenne pondérée par pop de référence pour les agrégats France/Hexagone/DROM
+    annees_disponibles: [2020, 2025, 2030, 2035, 2040, 2045, 2050, 2060, 2070]

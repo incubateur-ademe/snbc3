@@ -1,0 +1,862 @@
+# config/traj_supra.yaml
+# =============================================================================
+# Correspondance des sous-secteurs de la trajectoire nationale SNBC3 ("Traj_supra")
+# vers les pivots EPCI, les corrections (démographie / DJU) et les indicateurs
+# de recalage (énergie-climat, ALDO).
+#
+# SOURCE DE VÉRITÉ de la *correspondance* (pivot, flags, recalage). Les *valeurs*
+# annuelles nationales (2020->2050) proviennent d'un fichier séparé :
+# data/input/SNBC3 retraitée.xlsx (cf. config.settings.SNBC3_RETRAITEE_PATH),
+# appariées sur `code_traj_supra` (colonne D de l'onglet "SNBC3 retraitée HEX").
+#
+# Ce YAML est destiné à être synchronisé vers les colonnes de métadonnées de
+# l'onglet Traj_supra du tableur cible (même logique que Catalogue_data_EPCI).
+#
+# Flags de correction :
+#   influence_demographie : facteur démographique évolutif (croissance EPCI vs zone)
+#   correction_dju_chaud  : facteur = DJU chaud territoire / moyenne de zone (statique)
+#   correction_dju_froid  : facteur = DJU froid territoire / moyenne de zone (statique)
+#
+# code_recalage : indicateur observé servant à recaler le secteur en année de
+#   référence (null = pas de recalage -> pass-through). Le recalage est effectué
+#   au niveau du *secteur* : tous les sous-secteurs partageant le même
+#   code_recalage sont sommés puis recalés ensemble.
+#   Sources : EC_EMIS_* / EC_CONSO_* (énergie-climat), ALDO_UTCATF_* (UTCATF).
+#
+# Surcharges par zone, à deux niveaux :
+#   - bloc `zones` ci-dessous : réglages valant pour toute une zone (corrections
+#     DJU, secteurs désactivés, trajectoire dérivée) ;
+#   - clé `zones` d'un sous-secteur : surcharge ponctuelle de ce sous-secteur
+#     (`code_pivot` alternatif, `actif: false`).
+# Aux deux niveaux, une clé peut désigner un groupe de zones (DROM, cf.
+# config.settings.GROUPES_ZONES) : ses réglages valent pour chacune de ses
+# zones (GUADELOUPE, MARTINIQUE...), qui peuvent les compléter ou les
+# surcharger. Une zone absente de ces deux endroits se comporte comme
+# l'hexagone.
+# =============================================================================
+
+meta:
+  description: "SNBC3 run3"
+  source_valeurs: "data/input/SNBC3 retraitée.xlsx"
+  onglets: "cf. config.settings.SNBC3_SHEETS"
+  annee_min: 2020
+  annee_max: 2050
+  unites:
+    GES: "MtCO2e"
+    conso: "TWh"
+
+# =============================================================================
+# Réglages par zone
+#
+# corrections_dju : désactivation d'une correction climatique sur TOUS les
+#   sous-secteurs de la zone. Seule la valeur `false` a un effet : ce bloc peut
+#   éteindre une correction, jamais en allumer une là où le sous-secteur ne la
+#   prévoit pas.
+# secteurs_desactives : secteurs entièrement retirés de la territorialisation
+#   de la zone (données de pivot indisponibles).
+# =============================================================================
+
+zones:
+
+  DROM:
+    libelle: "Départements et régions d'outre-mer"
+
+    # Corrections DJU désactivées, pour trois raisons cumulatives :
+    #  - Antilles et Guyane ont un DJU chaud nul, donc un facteur de correction
+    #    nul : le chauffage y serait annulé et la conservation de la trajectoire
+    #    conso (non recalée, cf. ci-dessous) rompue d'environ un tiers ;
+    #  - le DJU froid EPCI est dominé par l'altitude des stations Météo-France
+    #    interpolées (le TCO, côte ouest réunionnaise, ressort plus bas que la
+    #    CINOR alors qu'il est plus chaud) : les Hauts et les Bas de La Réunion
+    #    sont dans les mêmes EPCI et ne peuvent pas être distingués à cette
+    #    maille ;
+    #  - Mayotte n'a aucune station, donc un facteur par défaut de 1 qui serait
+    #    incohérent avec le 0 des Antilles.
+    # Enjeu borné : le résidentiel pèse 3,9 % des émissions DROM et le chauffage
+    # n'en est qu'une fraction. Conforme à la recommandation de l'étude de
+    # faisabilité ADEME/Eco2 (mars 2026) et de la DR Océan Indien.
+    corrections_dju:
+      chaud: false
+      froid: false
+
+    # ALDO ne couvre pas les DROM et l'IGT du CITEPA est publié hors puits de
+    # carbone : aucun pivot territorial disponible. À réactiver dès la sortie
+    # de la version DROM d'ALDO.
+    secteurs_desactives:
+      - UTCATF
+
+    # Trajectoire de chaque DROM, dérivée à l'exécution de celle du groupe
+    # (onglet « SNBC3 retraitée DROM », seul retraité dans le classeur) :
+    #
+    #   N_zone(ss,t) = N_DROM(ss,t) × P(ss) × D(t) × k(secteur,t)
+    #
+    #  - P : part de la zone dans le pivot du sous-secteur (total de la zone /
+    #    total DROM, année de référence). Mayotte n'est pas territorialisée
+    #    (cf. config.settings.ZONES_TERRITORIALISEES) mais reste dans le total
+    #    DROM. Là où un pivot ne la couvre pas (MEN, RP*, EMP_TER, EMP_IND_*,
+    #    absents des bases INSEE), le total DROM ne compte pas sa part et les
+    #    quatre autres DROM se partageraient 100 % d'une trajectoire qui
+    #    l'inclut : P est alors multiplié par (1 - part de Mayotte dans la
+    #    conso du secteur), prise dans les bilans à `annee_part_hors_perimetre`.
+    #    Part énergétique et non démographique : Mayotte pèse nettement plus
+    #    en habitants qu'en énergie.
+    #  - D : dérive démographique de la zone par rapport au groupe
+    #    (POP_PROJ_RATIO), pour les sous-secteurs `influence_demographie`. Le
+    #    facteur démographique par EPCI étant désormais normalisé sur la zone,
+    #    D restitue l'écart de croissance entre DROM.
+    #  - k : calage de la conso (`types_cales`) sur les bilans DGEC par
+    #    territoire. Pour chaque secteur de `secteurs`, Σ des sous-secteurs de
+    #    la zone = trajectoire DROM du secteur × part de la zone dans le bilan
+    #    (colonne Total tous vecteurs), interpolée entre les années des bilans
+    #    (2019, puis tous les 5 ans jusqu'à 2050). Le pivot unique de zone
+    #    supposait une conso par ménage ou par emploi homogène entre DROM ; les
+    #    bilans le démentent en niveau (industrie Guyane : -78 % en 2019 par
+    #    rapport à son poids en emplois industriels) comme en dynamique
+    #    (tertiaire 2050, base 2019 : 44 en Martinique, 126 en Guyane).
+    #
+    # Sans k, le découpage en zones reproduit exactement la territorialisation
+    # sur le groupe entier : la branche GES, recalée sur l'IGT, n'en est pas
+    # affectée. Déchets et Branche énergie ne sont pas calés (pas de ligne
+    # dans les bilans). Le partage entre sous-secteurs d'un même secteur reste
+    # celui des pivots.
+    #
+    # SOURCE. Le pipeline lit les parts dans l'onglet `onglet_parts` du
+    # classeur publié. scripts/publier_snbc3.py les calcule depuis les onglets
+    # de bilans du classeur de travail (groupe ici, zones via `onglet_bilan`) :
+    # un onglet manquant, ou une somme des zones qui s'écarte du bilan du
+    # groupe de plus de 0,1 %, y lève une erreur. Le pipeline revérifie que
+    # les parts somment à 1 par secteur et par année.
+    trajectoire_derivee:
+      onglet_parts: "Parts bilans DROM"
+      onglet_bilan_groupe: "Bilans énergie DROM"
+      types_cales: [conso]
+      annee_part_hors_perimetre: 2019    # la plus proche de ANNEE_REF
+      # Secteur traj_supra -> libellé du bilan (colonne C du bloc annuel)
+      secteurs:
+        Résidentiel: "Résidentiel"
+        Tertiaire:   "Tertiaire"
+        Industrie:   "Industrie"
+        Transports:  "Transport"
+        Agriculture: "Agriculture"
+      # Pas de ligne CSC dans les bilans : part de l'industrie retenue, le
+      # captage étant un procédé industriel. Sans effet à ce jour, la
+      # trajectoire CSC des DROM étant nulle sur toute la période.
+      alias:
+        CSC: Industrie
+
+  # Zones du groupe DROM : elles héritent du bloc ci-dessus.
+  GUADELOUPE:
+    onglet_bilan: "Bilans énergie Guadeloupe"
+  MARTINIQUE:
+    onglet_bilan: "Bilans énergie Martinique"
+  GUYANE:
+    onglet_bilan: "Bilans énergie Guyane"
+  REUNION:
+    onglet_bilan: "Bilans énergie Réunion"
+  # Hors périmètre v1 (pivots INSEE absents, cf. ZONES_TERRITORIALISEES) :
+  # son bilan sert seulement à la correction P ci-dessus.
+  MAYOTTE:
+    onglet_bilan: "Bilans énergie Mayotte"
+
+sous_secteurs:
+
+  # --- GES : Résidentiel ---------------------------------------------------
+  - code_traj_supra: emi_res_ch_MI
+    type: GES
+    secteur: Résidentiel
+    usage: "Chauffage / Maisons individuelles"
+    code_pivot: RP_MAISON
+    influence_demographie: true
+    correction_dju_chaud: true
+    correction_dju_froid: false
+    code_recalage: EC_EMIS_RESIDENTIEL
+  - code_traj_supra: emi_res_ch_LC
+    type: GES
+    secteur: Résidentiel
+    usage: "Chauffage / Logement collectif"
+    code_pivot: RP_APPART
+    influence_demographie: true
+    correction_dju_chaud: true
+    correction_dju_froid: false
+    code_recalage: EC_EMIS_RESIDENTIEL
+  - code_traj_supra: emi_res_clim
+    type: GES
+    secteur: Résidentiel
+    usage: "Climatisation"
+    code_pivot: RP
+    influence_demographie: true
+    correction_dju_chaud: false
+    correction_dju_froid: true
+    code_recalage: EC_EMIS_RESIDENTIEL
+  - code_traj_supra: emi_res_autres
+    type: GES
+    secteur: Résidentiel
+    usage: "Autres usages"
+    code_pivot: MEN
+    influence_demographie: true
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: EC_EMIS_RESIDENTIEL
+
+  # --- GES : Tertiaire -----------------------------------------------------
+  - code_traj_supra: emi_ter_ch
+    type: GES
+    secteur: Tertiaire
+    usage: "Chauffage"
+    code_pivot: EMP_TER
+    influence_demographie: true
+    correction_dju_chaud: true
+    correction_dju_froid: false
+    code_recalage: EC_EMIS_TERTIAIRE
+  - code_traj_supra: emi_ter_clim
+    type: GES
+    secteur: Tertiaire
+    usage: "Climatisation"
+    code_pivot: EMP_TER
+    influence_demographie: true
+    correction_dju_chaud: false
+    correction_dju_froid: true
+    code_recalage: EC_EMIS_TERTIAIRE
+  - code_traj_supra: emi_ter_autres
+    type: GES
+    secteur: Tertiaire
+    usage: "Autres usages"
+    code_pivot: EMP_TER
+    influence_demographie: true
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: EC_EMIS_TERTIAIRE
+
+  # --- GES : Industrie -----------------------------------------------------
+  - code_traj_supra: emi_ind_chim
+    type: GES
+    secteur: Industrie
+    usage: "Chimie"
+    code_pivot: EMP_IND_CHIMIE
+    influence_demographie: false
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: EC_EMIS_INDUSTRIE_HORS_BE
+  - code_traj_supra: emi_ind_const
+    type: GES
+    secteur: Industrie
+    usage: "Construction"
+    code_pivot: EMP_IND_CONST
+    influence_demographie: false
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: EC_EMIS_INDUSTRIE_HORS_BE
+  - code_traj_supra: emi_ind_equip
+    type: GES
+    secteur: Industrie
+    usage: "Equipements"
+    code_pivot: EMP_IND_EQUIP
+    influence_demographie: false
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: EC_EMIS_INDUSTRIE_HORS_BE
+  - code_traj_supra: emi_ind_iaa
+    type: GES
+    secteur: Industrie
+    usage: "Agro-industries"
+    code_pivot: EMP_IND_IAA
+    influence_demographie: false
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: EC_EMIS_INDUSTRIE_HORS_BE
+  - code_traj_supra: emi_ind_met
+    type: GES
+    secteur: Industrie
+    usage: "Métaux"
+    code_pivot: EMP_IND_METAUX
+    influence_demographie: false
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: EC_EMIS_INDUSTRIE_HORS_BE
+  - code_traj_supra: emi_ind_nonmet
+    type: GES
+    secteur: Industrie
+    usage: "Non-métalliques"
+    code_pivot: EMP_IND_NONMET
+    influence_demographie: false
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: EC_EMIS_INDUSTRIE_HORS_BE
+  - code_traj_supra: emi_ind_pap
+    type: GES
+    secteur: Industrie
+    usage: "Papier-carton"
+    code_pivot: EMP_IND_PAPIER
+    influence_demographie: false
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: EC_EMIS_INDUSTRIE_HORS_BE
+  - code_traj_supra: emi_ind_ind_autres
+    type: GES
+    secteur: Industrie
+    usage: "Autres industries"
+    code_pivot: EMP_IND_AUTRES
+    influence_demographie: false
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: EC_EMIS_INDUSTRIE_HORS_BE
+
+  # --- GES : Agriculture ---------------------------------------------------
+  # Découpage aligné sur le détail SNBC3 Elevage/Cultures.
+  - code_traj_supra: emi_agr_elev_bovins
+    type: GES
+    secteur: Agriculture
+    usage: "Elevage / Bovins"
+    code_pivot: CHEPTEL_BOVINS
+    influence_demographie: false
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: EC_EMIS_AGRICULTURE
+  - code_traj_supra: emi_agr_elev_porcins
+    type: GES
+    secteur: Agriculture
+    usage: "Elevage / Porcins"
+    code_pivot: CHEPTEL_PORCINS
+    influence_demographie: false
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: EC_EMIS_AGRICULTURE
+  - code_traj_supra: emi_agr_elev_volailles
+    type: GES
+    secteur: Agriculture
+    usage: "Elevage / Volailles"
+    code_pivot: CHEPTEL_VOLAILLES
+    influence_demographie: false
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: EC_EMIS_AGRICULTURE
+  - code_traj_supra: emi_agr_elev_autres
+    type: GES
+    secteur: Agriculture
+    usage: "Elevage / Autres émissions de l'élevage"
+    code_pivot: CHEPTEL_UGB
+    influence_demographie: false
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: EC_EMIS_AGRICULTURE
+  - code_traj_supra: emi_agr_cult_engrais_min
+    type: GES
+    secteur: Agriculture
+    usage: "Cultures / Engrais et amendements minéraux"
+    code_pivot: CULT_SURF_NON_BIO
+    influence_demographie: false
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: EC_EMIS_AGRICULTURE
+  - code_traj_supra: emi_agr_cult_engrais_org
+    type: GES
+    secteur: Agriculture
+    usage: "Cultures / Engrais et amendements organiques"
+    code_pivot: CULT_SURF_TOTALE
+    influence_demographie: false
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: EC_EMIS_AGRICULTURE
+  - code_traj_supra: emi_agr_cult_pature
+    type: GES
+    secteur: Agriculture
+    usage: "Cultures / Pâture"
+    code_pivot: SURF_PRAIRIES
+    influence_demographie: false
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: EC_EMIS_AGRICULTURE
+  - code_traj_supra: emi_agr_cult_autres
+    type: GES
+    secteur: Agriculture
+    usage: "Cultures / Autres émissions des cultures"
+    code_pivot: CULT_SURF_TOTALE
+    influence_demographie: false
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: EC_EMIS_AGRICULTURE
+  - code_traj_supra: emi_agr_ener
+    type: GES
+    secteur: Agriculture
+    usage: "Engins, moteurs et chaudières"
+    code_pivot: SAU
+    influence_demographie: false
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: EC_EMIS_AGRICULTURE
+
+  # --- GES : Transports ----------------------------------------------------
+  - code_traj_supra: emi_mob_vp_domtra
+    type: GES
+    secteur: Transports
+    usage: "Routier mobilité VP / domicile-travail"
+    code_pivot: MOB_DT_EMISSIONS
+    influence_demographie: true
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: EC_EMIS_TRANSPORT_ROUTIER
+    zones:
+      # La mobilité domicile-travail ne couvre aucun EPCI DROM. Le pivot bascule
+      # sur le parc VP, déjà utilisé par emi_mob_vp_autre : les deux lignes
+      # partagent alors le même ratio, ce qui équivaut à une ligne VP unique.
+      # Cohérent avec l'étude de faisabilité, qui assimile tous les
+      # déplacements des DROM à des déplacements locaux.
+      DROM:
+        code_pivot: PARC_VP
+  - code_traj_supra: emi_mob_vp_autre
+    type: GES
+    secteur: Transports
+    usage: "Routier mobilité VP / autres motifs"
+    code_pivot: PARC_VP
+    influence_demographie: true
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: EC_EMIS_TRANSPORT_ROUTIER
+  - code_traj_supra: emi_fret_vul
+    type: GES
+    secteur: Transports
+    usage: "Routier fret VUL"
+    code_pivot: PARC_VUL
+    influence_demographie: false
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: EC_EMIS_TRANSPORT_ROUTIER
+  - code_traj_supra: emi_fret_pl
+    type: GES
+    secteur: Transports
+    usage: "Routier fret PL"
+    # Pivot = parc PL immatriculé (lieu résidence/siège social) : ne reflète pas
+    # le lieu réel de circulation (fret longue distance/transit). Voir
+    # docs/resultats_territorialises.md, "Limite connue : pivots PL et bus".
+    code_pivot: PARC_PL
+    influence_demographie: false
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: EC_EMIS_TRANSPORT_ROUTIER
+  - code_traj_supra: emi_mob_vp_bus
+    type: GES
+    secteur: Transports
+    usage: "Routier mobilité Bus & cars"
+    # Pivot = parc bus/cars immatriculé (lieu résidence/siège social) : ne
+    # reflète pas le lieu réel d'usage (autocars interurbains). Voir
+    # docs/resultats_territorialises.md, "Limite connue : pivots PL et bus".
+    code_pivot: PARC_BUS
+    influence_demographie: true
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: EC_EMIS_TRANSPORT_ROUTIER
+  - code_traj_supra: emi_mob_vp_2roues
+    type: GES
+    secteur: Transports
+    usage: "Routier mobilité 2 roues"
+    code_pivot: MEN
+    influence_demographie: true
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: EC_EMIS_TRANSPORT_ROUTIER
+  - code_traj_supra: emi_tra_autres
+    type: GES
+    secteur: Transports
+    usage: "Autres"
+    code_pivot: EC_EMIS_AUTRE_TRANSPORT
+    influence_demographie: false
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: EC_EMIS_AUTRE_TRANSPORT
+
+  # --- GES : Déchets / Branche énergie -------------------------------------
+  - code_traj_supra: emi_dech
+    type: GES
+    secteur: Déchets
+    usage: ""
+    code_pivot: EC_EMIS_DECHETS
+    influence_demographie: true
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: EC_EMIS_DECHETS
+  - code_traj_supra: emi_en
+    type: GES
+    secteur: Branche énergie
+    usage: ""
+    code_pivot: EC_EMIS_BRANCHE_ENERGIE
+    influence_demographie: false
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: EC_EMIS_BRANCHE_ENERGIE
+
+  # --- GES : UTCATF (pivots + recalage ALDO) --------------------------------
+  # Pivots et recalage basés sur les flux ALDO communaux agrégés par EPCI.
+  # Convention : positif = émission, négatif = séquestration
+  #
+  # mode_additif : la territorialisation utilise une approche additive au lieu
+  #   de multiplicative. Le delta national (année t vs ref) est mis à l'échelle
+  #   de la base observée (|facteur de recalage|, 1 sans recalage) puis réparti
+  #   au prorata du poids absolu du pivot territorial (|pivot_terr| / Sigma|pivot|).
+  #   Garantit : (1) que chaque territoire évolue dans le même sens que le
+  #   national, même si son point de départ est de signe opposé, et (2) que la
+  #   somme des territoires = facteur de recalage x trajectoire nationale
+  #   (facteur > 0), comme pour le recalage multiplicatif des autres secteurs.
+  - code_traj_supra: emi_UTCATF_for
+    type: GES
+    secteur: UTCATF
+    usage: "Forêts"
+    code_pivot: ALDO_UTCATF_FOR
+    influence_demographie: false
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: ALDO_UTCATF_FOR
+    mode_additif: true
+  - code_traj_supra: emi_UTCATF_cult
+    type: GES
+    secteur: UTCATF
+    usage: "Cultures"
+    code_pivot: ALDO_UTCATF_CULT
+    influence_demographie: false
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: ALDO_UTCATF_CULT
+    mode_additif: true
+  - code_traj_supra: emi_UTCATF_prai
+    type: GES
+    secteur: UTCATF
+    usage: "Prairies"
+    code_pivot: ALDO_UTCATF_PRAI
+    influence_demographie: false
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: ALDO_UTCATF_PRAI
+    mode_additif: true
+  - code_traj_supra: emi_UTCATF_zohu
+    type: GES
+    secteur: UTCATF
+    usage: "Zones humides"
+    code_pivot: ALDO_UTCATF_ZOHU
+    influence_demographie: false
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: ALDO_UTCATF_ZOHU
+    mode_additif: true
+  - code_traj_supra: emi_UTCATF_arti
+    type: GES
+    secteur: UTCATF
+    usage: "Sols artificiels"
+    code_pivot: ALDO_UTCATF_ARTI
+    influence_demographie: false
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: ALDO_UTCATF_ARTI
+    mode_additif: true
+  - code_traj_supra: emi_UTCATF_aut
+    type: GES
+    secteur: UTCATF
+    usage: "Autres terres"
+    code_pivot: ALDO_UTCATF_AUT
+    influence_demographie: false
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: ALDO_UTCATF_AUT
+    mode_additif: true
+  - code_traj_supra: emi_UTCATF_prbo
+    type: GES
+    secteur: UTCATF
+    usage: "Produits bois"
+    # Approche production (récolte) d'ALDO, son approche par défaut, validée en
+    # COPIL : le puits est attribué au territoire de récolte, pas au territoire
+    # de mise en oeuvre. L'approche consommation reste dans ALDO_UTCATF_PRBO.
+    code_pivot: ALDO_UTCATF_PRBO_PROD
+    influence_demographie: false
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: ALDO_UTCATF_PRBO_PROD
+    mode_additif: true
+  - code_traj_supra: emi_UTCATF_bar
+    type: GES
+    secteur: UTCATF
+    usage: "Barrages"
+    code_pivot: ALDO_UTCATF_AUT
+    influence_demographie: false
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: null
+    mode_additif: true
+  - code_traj_supra: emi_UTCATF_solfor
+    type: GES
+    secteur: UTCATF
+    usage: "Sols forestiers (hors inventaire)"
+    # Surface et non flux net de la forêt : ce dernier est émetteur sur
+    # certains territoires, ce qui inverserait le signe du puits national.
+    code_pivot: ALDO_SURF_FORET
+    influence_demographie: false
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: null # Hors inventaire
+    mode_additif: true
+
+  # --- GES : CSC -----------------------------------------------------------
+  # Le CSC SNBC3 regroupe trois postes (onglet retraité, lignes SECTEN
+  # « Capture... ») : captage biogénique (BECCS) de la branche énergie et de
+  # l'industrie, et captage direct dans l'air. Le captage fossile de
+  # l'industrie n'en fait pas partie : il est déjà déduit des sous-secteurs
+  # emi_ind_*. Pas de recalage, la technologie étant inexistante en année de
+  # référence.
+  # BECCS branche énergie : les futurs sites ne sont pas connus et les
+  # émissions fossiles actuelles de la branche (pivot très lacunaire, concentré
+  # sur quelques raffineries) n'en sont pas un bon indice. Réparti par
+  # habitant comme le DAC.
+  - code_traj_supra: emi_CSC_beccs_en
+    type: GES
+    secteur: CSC
+    usage: "BECCS branche énergie"
+    code_pivot: POP
+    influence_demographie: true
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: null
+  - code_traj_supra: emi_CSC_beccs_ind
+    type: GES
+    secteur: CSC
+    usage: "BECCS industrie"
+    code_pivot: EC_EMIS_INDUSTRIE_HORS_BE
+    influence_demographie: false
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: null
+  # Le DAC n'est rattaché à aucun site : levier national compensant les
+  # émissions résiduelles, réparti à parts égales par habitant.
+  - code_traj_supra: emi_CSC_dac
+    type: GES
+    secteur: CSC
+    usage: "Captage direct dans l'air (DAC)"
+    code_pivot: POP
+    influence_demographie: true
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: null
+
+  # --- Conso énergie finale : Résidentiel ----------------------------------
+  - code_traj_supra: cons_res_ch_MI
+    type: conso
+    secteur: Résidentiel
+    usage: "Chauffage / Maisons individuelles"
+    code_pivot: RP_MAISON
+    influence_demographie: true
+    correction_dju_chaud: true
+    correction_dju_froid: false
+    code_recalage: EC_CONSO_RESIDENTIEL
+  - code_traj_supra: cons_res_ch_LC
+    type: conso
+    secteur: Résidentiel
+    usage: "Chauffage / Logement collectif"
+    code_pivot: RP_APPART
+    influence_demographie: true
+    correction_dju_chaud: true
+    correction_dju_froid: false
+    code_recalage: EC_CONSO_RESIDENTIEL
+  - code_traj_supra: cons_res_clim
+    type: conso
+    secteur: Résidentiel
+    usage: "Climatisation"
+    code_pivot: RP
+    influence_demographie: true
+    correction_dju_chaud: false
+    correction_dju_froid: true
+    code_recalage: EC_CONSO_RESIDENTIEL
+  - code_traj_supra: cons_res_autres
+    type: conso
+    secteur: Résidentiel
+    usage: "Autres usages"
+    code_pivot: MEN
+    influence_demographie: true
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: EC_CONSO_RESIDENTIEL
+
+  # --- Conso énergie finale : Tertiaire ------------------------------------
+  - code_traj_supra: cons_ter_ch
+    type: conso
+    secteur: Tertiaire
+    usage: "Chauffage"
+    code_pivot: EMP_TER
+    influence_demographie: true
+    correction_dju_chaud: true
+    correction_dju_froid: false
+    code_recalage: EC_CONSO_TERTIAIRE
+  - code_traj_supra: cons_ter_clim
+    type: conso
+    secteur: Tertiaire
+    usage: "Climatisation"
+    code_pivot: EMP_TER
+    influence_demographie: true
+    correction_dju_chaud: false
+    correction_dju_froid: true
+    code_recalage: EC_CONSO_TERTIAIRE
+  - code_traj_supra: cons_ter_autres
+    type: conso
+    secteur: Tertiaire
+    usage: "Autres usages"
+    code_pivot: EMP_TER
+    influence_demographie: true
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: EC_CONSO_TERTIAIRE
+
+  # --- Conso énergie finale : Industrie ------------------------------------
+  - code_traj_supra: cons_ind_chim
+    type: conso
+    secteur: Industrie
+    usage: "Chimie"
+    code_pivot: EMP_IND_CHIMIE
+    influence_demographie: false
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: EC_CONSO_INDUSTRIE
+  - code_traj_supra: cons_ind_const
+    type: conso
+    secteur: Industrie
+    usage: "Construction"
+    code_pivot: EMP_IND_CONST
+    influence_demographie: false
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: EC_CONSO_INDUSTRIE
+  - code_traj_supra: cons_ind_equip
+    type: conso
+    secteur: Industrie
+    usage: "Equipements"
+    code_pivot: EMP_IND_EQUIP
+    influence_demographie: false
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: EC_CONSO_INDUSTRIE
+  - code_traj_supra: cons_ind_iaa
+    type: conso
+    secteur: Industrie
+    usage: "Agro-industries"
+    code_pivot: EMP_IND_IAA
+    influence_demographie: false
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: EC_CONSO_INDUSTRIE
+  - code_traj_supra: cons_ind_met
+    type: conso
+    secteur: Industrie
+    usage: "Métaux"
+    code_pivot: EMP_IND_METAUX
+    influence_demographie: false
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: EC_CONSO_INDUSTRIE
+  - code_traj_supra: cons_ind_nonmet
+    type: conso
+    secteur: Industrie
+    usage: "Non-métalliques"
+    code_pivot: EMP_IND_NONMET
+    influence_demographie: false
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: EC_CONSO_INDUSTRIE
+  - code_traj_supra: cons_ind_pap
+    type: conso
+    secteur: Industrie
+    usage: "Papier-carton"
+    code_pivot: EMP_IND_PAPIER
+    influence_demographie: false
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: EC_CONSO_INDUSTRIE
+  - code_traj_supra: cons_ind_ind_autres
+    type: conso
+    secteur: Industrie
+    usage: "Autres industries"
+    code_pivot: EMP_IND_AUTRES
+    influence_demographie: false
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: EC_CONSO_INDUSTRIE
+
+  # --- Conso énergie finale : Agriculture / Transports ----------------------
+  - code_traj_supra: cons_agr
+    type: conso
+    secteur: Agriculture
+    usage: ""
+    code_pivot: EC_CONSO_AGRICULTURE
+    influence_demographie: false
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: EC_CONSO_AGRICULTURE
+    zones:
+      # Pas de donnée de consommation observée aux DROM. Pivot sur la SAU,
+      # disponible partout (RA 2020) et recommandé par l'étude de faisabilité
+      # pour la branche énergie de l'agriculture.
+      DROM:
+        code_pivot: SAU
+  - code_traj_supra: cons_mob_vp_domtra
+    type: conso
+    secteur: Transports
+    usage: "Routier mobilité VP domicile-travail"
+    code_pivot: MOB_DT_CONSO_FINALE
+    influence_demographie: true
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: EC_CONSO_TRANSPORT_ROUTIER
+    zones:
+      DROM:
+        code_pivot: PARC_VP
+  - code_traj_supra: cons_mob_vp_autre
+    type: conso
+    secteur: Transports
+    usage: "Routier autre"
+    code_pivot: EC_CONSO_TRANSPORT_ROUTIER
+    influence_demographie: false
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: EC_CONSO_TRANSPORT_ROUTIER
+    zones:
+      # Aucune donnée de consommation observée aux DROM : le pivot bascule sur
+      # les émissions du même secteur (IGT), qui portent la même clé de
+      # répartition territoriale. Le recalage, lui, reste sans objet
+      # (EC_CONSO_* absent de la BDD -> pass-through automatique).
+      DROM:
+        code_pivot: EC_EMIS_TRANSPORT_ROUTIER
+  - code_traj_supra: cons_tra_autres
+    type: conso
+    secteur: Transports
+    usage: "Autres"
+    code_pivot: EC_CONSO_AUTRE_TRANSPORT
+    influence_demographie: false
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: EC_CONSO_AUTRE_TRANSPORT
+    zones:
+      DROM:
+        code_pivot: EC_EMIS_AUTRE_TRANSPORT
+
+  # --- Conso énergie finale : Déchets ---------------------------------------
+  # Nouvelle trajectoire SNBC3 (retranchée de l'industrie)
+  - code_traj_supra: cons_dech
+    type: conso
+    secteur: Déchets
+    usage: ""
+    code_pivot: EC_CONSO_DECHETS
+    influence_demographie: true
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: EC_CONSO_DECHETS
+    zones:
+      DROM:
+        code_pivot: EC_EMIS_DECHETS
+
+ # --- Conso énergie finale : CSC -------------------------------------------
+  # Ligne « CCUS dans la production d'énergie et DACCS » des bilans : BECCS de
+  # la branche énergie et DAC, non ventilés (l'énergie du BECCS industriel est
+  # dans la conso Industrie). Pivot du DAC, qui en porte vraisemblablement
+  # l'essentiel par son intensité énergétique.
+  - code_traj_supra: cons_csc
+    type: conso
+    secteur: CSC
+    usage: "Process CSC"
+    code_pivot: POP
+    influence_demographie: true
+    correction_dju_chaud: false
+    correction_dju_froid: false
+    code_recalage: null # Pas de recalage car techno inexistante

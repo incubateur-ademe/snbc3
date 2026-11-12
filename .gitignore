@@ -1,0 +1,65 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# État interne de doit (dodo.py)
+.doit.*
+
+# Virtual environments
+.venv
+
+# Classeur de travail SNBC3 (données DGEC brutes et détail du retraitement) :
+# non publié, seule sa version publiée data/input/SNBC3 retraitée.xlsx est
+# versionnée (scripts/publier_snbc3.py)
+data/input/travail/
+
+# Données brutes téléchargées (volumineuses, reproductibles)
+data/raw/
+cache_dju/
+output_dju/
+
+# Fichiers intermédiaires et de sortie (reproductibles)
+data/interim/
+data/output/
+
+# Formats de données lourds
+*.parquet
+*.csv.gz
+
+# Anciens dossiers de travail (non versionnés, volumineux)
+archives/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+.claude
+
+# Outil standalone - sortie générée
+standalone_tool/output/
+
+# Doc des sources - générée par main.py generate_sources
+docs/Sources donnees.xlsx
+
+# Doc du parquet territorialisé - générée par main.py document_territorialize
+docs/Territorialisation.xlsx
+
+# Excel lock files
+~$*.xlsx
+~$*.xls
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+notebooks/.ipynb_checkpoints/
+
+# Paquets de publication (main.py release) : publiés en releases GitHub
+releases/
+
+# Rapport méthodologique : source Word locale, seul le PDF est versionné
+docs/ADEME-Methodo-Outil-trajectoire-référence-V2.docx

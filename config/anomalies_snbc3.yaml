@@ -1,0 +1,317 @@
+# config/anomalies_snbc3.yaml
+# =============================================================================
+# Registre des anomalies constatées dans les données SNBC3 transmises par la
+# DGEC, contrôlé automatiquement par scripts/controle_snbc3.py.
+#
+# POURQUOI UN REGISTRE PLUTÔT QU'UNE NOTE. Les données SNBC3 ont été livrées
+# par versions successives (run 3, puis run 3 bis pour les GES DROM). Une anomalie signalée sur un envoi doit être
+# re-testée sur le suivant, sinon rien ne garantit qu'elle a été corrigée - ni,
+# à l'inverse, qu'une correction n'en a pas introduit une autre. Chaque entrée
+# porte donc un ou plusieurs contrôles exécutables, et le script indique pour
+# chacun s'il est PRESENT ou CORRIGE sur le fichier en place.
+#
+# Une anomalie corrigée est conservée avec `statut: corrigee` et un bloc
+# `corrige` (date, livraison) : son contrôle devient un test de non-régression
+# pour les versions ultérieures.
+#
+# TYPES DE CONTRÔLE
+#   rupture             : saut de niveau entre deux années d'une même série.
+#                         Paramètres : annee_avant, annee_apres, ratio_max.
+#   divergence_sources  : écart entre deux onglets décrivant le même poste.
+#                         Paramètres : onglet_reference, poste_reference,
+#                         facteur_reference, annees, ecart_max_pct.
+#   coherence_lignes    : deux lignes d'un même onglet censées porter la même
+#                         grandeur (synthèse vs total du bloc de détail).
+#                         Paramètres : poste_reference, ecart_max_pct.
+#   colonnes_identiques : plusieurs années portant exactement la même valeur,
+#                         signe d'un copier-coller. Paramètres : annees_min,
+#                         depuis.
+#   valeurs_negatives   : émissions brutes négatives, sur tous les postes hors
+#                         puits et captage. Paramètres : depuis, seuil,
+#                         exclure_motifs.
+# =============================================================================
+
+meta:
+  fichier: "data/input/travail/SNBC3 retraitée - travail.xlsx"   # classeur de travail, non versionné
+  millesime_controle: "AMS run 3 (GES DROM : run 3 bis du 2026-10-08)"
+  description: >
+    Contrôles portant sur les onglets bruts transmis par la DGEC, avant tout
+    retraitement. Le retraitement SECTEN -> PCAET est fait à la main dans le
+    classeur : ces contrôles protègent sa donnée d'entrée.
+
+anomalies:
+
+  - id: GES-DROM-AGRICULTURE-2025
+    titre: "Rupture de niveau et divergence sur l'agriculture des DROM"
+    onglet: "GES DROM"
+    poste: "Agriculture"
+    statut: corrigee
+    corrige:
+      date: 2026-10-08
+      livraison: "emissions_drom_run3_bis.xlsx"
+    constat: >
+      Sur AMS run 3, la série passait de 0,488 MtCO2e en 2023 à 2,861 en 2025
+      (facteur 5,9), à +478 % de l'onglet des bilans énergie en 2025. La
+      livraison run 3 bis la maintient vers 0,50 MtCO2e jusqu'en 2050, à
+      moins de 11 % des bilans.
+    consequence: >
+      Corrigée. Les contrôles sont conservés en test de non-régression.
+    controles:
+      - type: rupture
+        annee_avant: 2023
+        annee_apres: 2025
+        ratio_max: 1.5
+      - type: divergence_sources
+        onglet_reference: "Bilans énergie DROM"
+        poste_reference: "Agriculture"
+        facteur_reference: 0.001        # ktCO2eq -> MtCO2e
+        annees: [2025, 2030, 2035, 2040, 2045, 2050]
+        ecart_max_pct: 25
+
+  - id: GES-DROM-DECHETS-2025
+    titre: "Rupture de niveau sur les déchets des DROM"
+    onglet: "GES DROM"
+    poste: "Traitement centralisé des déchets"
+    statut: corrigee
+    corrige:
+      date: 2026-10-08
+      livraison: "emissions_drom_run3_bis.xlsx"
+    constat: >
+      Sur AMS run 3, la série passait de 1,067 MtCO2e en 2023 à 2,393 en 2025
+      (facteur 2,2), puis restait sur ce palier. La livraison run 3 bis
+      supprime la rupture (1,096 en 2025). La divergence avec les bilans,
+      réduite mais persistante, est suivie par GES-DROM-DECHETS-BILANS.
+    consequence: >
+      Corrigée. Le contrôle est conservé en test de non-régression.
+    controles:
+      - type: rupture
+        annee_avant: 2023
+        annee_apres: 2025
+        ratio_max: 1.5
+
+  - id: GES-DROM-DECHETS-BILANS
+    titre: "GES déchets des DROM : bilans énergie non alignés sur GES DROM"
+    onglet: "GES DROM"
+    poste: "Traitement centralisé des déchets"
+    statut: ouverte
+    priorite: basse
+    constat: >
+      Comparaison de deux trajectoires d'émissions (le bloc en ktCO2eq en tête
+      de l'onglet des bilans, pas la conso d'énergie). Elles concordent en
+      2020 (-4 %), puis divergent : GES DROM reste quasi stable (1,10 MtCO2e
+      en 2025, 0,96 en 2050) quand les bilans décroissent (0,89 puis 0,26).
+      L'écart passe de +24 % en 2025 à +269 % en 2050. GES DROM reprend
+      exactement les hypothèses AMS run 3 bis (onglet DROM : 1,055 MtCO2e en
+      2030), et son maintien est plausible : le méthane des décharges, qui
+      persiste des décennies après enfouissement, en fait 0,90 en 2050. Les
+      bilans du classeur sont ceux de AMS run3_v2 : c'est vraisemblablement
+      leur en-tête GES qui n'a pas suivi.
+    consequence: >
+      Aucune sur l'outil : la trajectoire `emi_dech` suit GES DROM (-6 % entre
+      2021 et 2050), et le pipeline ne lit que les blocs de conso des bilans.
+      Seule l'analyse des trajectoires GES par DROM (rapport, §4.5.3) utilise
+      cet en-tête. Demander à la DGEC les bilans DROM du run 3 bis.
+    controles:
+      - type: divergence_sources
+        onglet_reference: "Bilans énergie DROM"
+        poste_reference: "Déchets"
+        facteur_reference: 0.001
+        annees: [2025, 2030, 2035, 2040, 2045, 2050]
+        ecart_max_pct: 25
+
+  - id: GES-DROM-BATIMENTS-INCOHERENCE
+    titre: "Synthèse et détail incohérents sur les bâtiments des DROM"
+    onglet: "GES DROM"
+    poste: "Total Usage des bâtiments et activités résidentiels/tertiaires"
+    statut: corrigee
+    corrige:
+      date: 2026-10-08
+      livraison: "emissions_drom_run3_bis.xlsx"
+    constat: >
+      Sur AMS run 3, la ligne de synthèse « Usage des bâtiments et activités
+      résidentiels/tertiaires » et le total du bloc de détail coïncidaient
+      jusqu'en 2023 puis divergeaient (+346 % en 2025). Incohérence **interne
+      à l'onglet**, qu'aucun contrôle de rupture ne voit. Les deux lignes
+      coïncident sur toute la période dans la livraison run 3 bis.
+    consequence: >
+      Corrigée. Le contrôle est conservé en test de non-régression.
+    controles:
+      - type: coherence_lignes
+        poste_reference: "Usage des bâtiments et activités résidentiels/tertiaires"
+        ecart_max_pct: 1
+
+  - id: GES-DROM-BATIMENTS-2025
+    titre: "Rupture de niveau sur les bâtiments des DROM"
+    onglet: "GES DROM"
+    poste: "sous-total Usage des bâtiments tertiaires"
+    statut: corrigee
+    corrige:
+      date: 2026-10-08
+      livraison: "emissions_drom_run3_bis.xlsx"
+    constat: >
+      Sur AMS run 3, le tertiaire passait de 0,322 à 2,759 MtCO2e entre 2023 et
+      2025 (facteur 8,6). Livraison run 3 bis : 0,346 en 2025, puis
+      décroissance régulière.
+    consequence: >
+      Corrigée. Le contrôle est conservé en test de non-régression.
+    controles:
+      - type: rupture
+        annee_avant: 2023
+        annee_apres: 2025
+        ratio_max: 1.5
+
+  - id: GES-DROM-RESIDENTIEL-2025
+    titre: "Rupture de niveau sur le résidentiel des DROM"
+    onglet: "GES DROM"
+    poste: "sous-total Usage des bâtiments résidentiels"
+    statut: corrigee
+    corrige:
+      date: 2026-10-08
+      livraison: "emissions_drom_run3_bis.xlsx"
+    constat: >
+      Sur AMS run 3 : 0,466 -> 0,961 MtCO2e entre 2023 et 2025 (facteur 2,1).
+      Livraison run 3 bis : 0,488 en 2025.
+    consequence: >
+      Corrigée. Le contrôle est conservé en test de non-régression.
+    controles:
+      - type: rupture
+        annee_avant: 2023
+        annee_apres: 2025
+        ratio_max: 1.5
+
+  - id: GES-DROM-INDUSTRIE-VENTILATION
+    titre: "Ventilation aberrante entre agro-alimentaire et minéraux non-métalliques"
+    onglet: "GES DROM"
+    poste: "Agro-alimentaire - sources d'émissions"
+    statut: corrigee
+    corrige:
+      date: 2026-10-08
+      livraison: "emissions_drom_run3_bis.xlsx"
+    constat: >
+      Sur AMS run 3, à partir de 2025, l'agro-alimentaire était multiplié par
+      7,4 (0,079 -> 0,582 MtCO2e) tandis que les minéraux non-métalliques
+      devenaient négatifs (-0,506), les deux se compensant en 2025. Livraison
+      run 3 bis : agro-alimentaire à 0,069 en 2025, minéraux non-métalliques
+      à 0,001 sur toute la période.
+    consequence: >
+      Corrigée. Le contrôle est conservé en test de non-régression.
+    controles:
+      # La compensation entre les deux filières n'est pas testée directement :
+      # elle demanderait un contrôle sur la somme de deux lignes, pour un cas
+      # unique. La rupture sur l'agro-alimentaire et la valeur négative sur les
+      # minéraux (GES-DROM-EMISSIONS-NEGATIVES) signalent déjà les deux faces.
+      - type: rupture
+        annee_avant: 2023
+        annee_apres: 2025
+        ratio_max: 2.0
+
+  - id: GES-DROM-EMISSIONS-NEGATIVES
+    titre: "Émissions brutes négatives dans les projections des DROM"
+    onglet: "GES DROM"
+    poste: null                          # contrôle sur tous les postes
+    statut: ouverte
+    priorite: basse
+    constat: >
+      Sur AMS run 3, onze postes d'émissions brutes basculaient en négatif à
+      partir de 2025 (minéraux non-métalliques, engins agricoles, déchets
+      solides, transport maritime international...). La livraison run 3 bis
+      corrige l'essentiel : ne restent négatifs, en 2050 seulement, que la
+      réfrigération tertiaire (-0,045 MtCO2e), la climatisation tertiaire
+      (-0,006) et, par somme, le sous-total tertiaire (-0,049). Une émission
+      brute négative n'a pas de sens physique : seuls les puits de carbone et
+      le captage peuvent l'être, et ils sont exclus du contrôle.
+    consequence: >
+      Le tertiaire DROM retraité devient légèrement négatif en fin de période
+      (`emi_ter_autres` -0,031 MtCO2e en 2050, `emi_ter_clim` -0,005).
+      Effet négligeable sur les territoires, mais à signaler.
+    controles:
+      - type: valeurs_negatives
+        depuis: 2024
+        seuil: 0.001
+        exclure_motifs:
+          - "CCS"
+          - "CCU"
+          - "apture"
+          - "UTCATF"
+          - "Forêts"
+          - "Prairies"
+          - "Terres cultivées"
+          - "Zones humides"
+          - "Zones artificialisées"
+          - "Produits bois"
+          - "Autres terres"
+          - "Sols"
+
+  - id: GES-DROM-UTCATF-DETAIL
+    titre: "Séries UTCATF des DROM erratiques"
+    onglet: "GES DROM"
+    poste: "Forêts"
+    statut: corrigee
+    corrige:
+      date: 2026-10-08
+      livraison: "emissions_drom_run3_bis.xlsx"
+    constat: >
+      Sur AMS run 3, le détail UTCATF des DROM enchaînait des sauts sans
+      continuité (forêts de -0,377 à -46,136 MtCO2e entre 2020 et 2021, terres
+      cultivées de 1,550 à 11,134...). Le détail de la livraison run 3 bis est
+      lisse et somme au total sur toute la période.
+    consequence: >
+      Corrigée. Le classeur contournait l'anomalie en ventilant le total par
+      les parts de 2020 (« SNBC3 retraitée DROM », lignes 196-203) ; ces
+      lignes lisent désormais le détail DGEC (2026-10-08). L'ancienne formule
+      inversait le signe des sous-postes avec le nouveau total, qui devient
+      positif vers 2043, et faussait par différence l'UTCATF de l'hexagone.
+    controles:
+      - type: rupture
+        annee_avant: 2020
+        annee_apres: 2021
+        ratio_max: 2.0
+
+  - id: GES-DROM-UTCATF-BILANS
+    titre: "UTCATF des DROM : bilans énergie non alignés sur GES DROM"
+    onglet: "GES DROM"
+    poste: "Total UTCATF (total national)"
+    statut: ouverte
+    priorite: basse
+    constat: >
+      La livraison run 3 bis modifie aussi les années d'inventaire de
+      l'UTCATF : le total 2020 passe de +3,39 à -6,41 MtCO2e, surtout par les
+      forêts (-0,38 -> -10,18). Il rejoint les hypothèses AMS run 3 bis (onglet
+      DROM : -6,505 en 2023, source CITEPA SECTEN 2026), mais l'en-tête GES de
+      l'onglet des bilans (AMS run3_v2, LULUCF : +3,78 en 2020), qui
+      concordait avec l'ancien envoi, n'a pas suivi. La nouvelle valeur est
+      la plus plausible : par différence Kyoto - DROM, elle rapproche les
+      forêts de l'hexagone 2021 de l'observé (Σ EPCI ALDO : écart -31 % avant,
+      -17 % après, cf. `rapport_coherence_nationale.py`).
+    consequence: >
+      Aucune sur les DROM (UTCATF désactivé, cf. `secteurs_desactives` dans
+      traj_supra.yaml) ni sur le pipeline, qui ne lit pas cet en-tête. Côté
+      hexagone, la correction est bienvenue. Comme pour
+      GES-DROM-DECHETS-BILANS : demander à la DGEC les bilans DROM du run 3
+      bis.
+    controles:
+      - type: divergence_sources
+        onglet_reference: "Bilans énergie DROM"
+        poste_reference: "LULUCF"
+        facteur_reference: 0.001
+        annees: [2020, 2025, 2030, 2035, 2040, 2045, 2050]
+        ecart_max_pct: 25
+
+  - id: GES-KYOTO-COLONNES-IDENTIQUES
+    titre: "Colonnes 2040, 2045 et 2050 identiques au périmètre Kyoto"
+    onglet: "GES Kyoto"
+    poste: null                          # contrôle sur tous les postes
+    statut: corrigee
+    signale:
+      date: 2026-02-12
+      a: DGEC
+    constat: >
+      Sur un envoi antérieur, les colonnes 2040, 2045 et 2050 du périmètre
+      Kyoto portaient des valeurs identiques. Le contrôle ne détecte plus
+      l'anomalie sur le millésime AMS run 3.
+    consequence: >
+      Corrigée. Le contrôle est conservé en test de non-régression.
+    controles:
+      - type: colonnes_identiques
+        annees_min: 3
+        depuis: 2035

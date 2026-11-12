@@ -1,0 +1,50 @@
+[project]
+name = "traj-ges"
+version = "0.1.0"
+description = "Trajectoire GES territorialisée de la SNBC à l'échelle EPCI"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "colorlog>=6.10.1",
+    "doit>=0.37.0",
+    "numpy>=2.4.3",
+    "openpyxl>=3.1",
+    "pandas>=3.0.1",
+    "pillow>=13.0.0",
+    "pyarrow>=23.0.1",
+    "pytest>=9.0.2",
+    "pyyaml>=6.0",
+    "requests>=2.32.5",
+    "scipy>=1.17.1",
+    "xlrd>=2.0.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+viz = [
+    "folium>=0.18",
+]
+excel = [
+    # Contrôles manuels pilotant Excel (scripts/verif_*_excel.py), Windows ou macOS
+    "xlwings>=0.33",
+]
+api = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic-settings>=2.5",
+    "httpx2",  # client de starlette.testclient (httpx y est déprécié)
+]
+
+[tool.pytest.ini_options]
+# Niveaux de test : cf. README.md, « Tests et contrôles ».
+markers = [
+    "donnees: tests sur données réelles (cache data/interim, classeur SNBC3), ~30 s",
+    "excel: convergence avec le classeur généré, plusieurs minutes (lancer avec -m excel)",
+]
+addopts = "-m 'not excel'"
+filterwarnings = [
+    # Alias anyio déprécié utilisé par starlette.testclient lui-même (hors projet)
+    "ignore:The anyio.abc.BlockingPortal alias is deprecated:DeprecationWarning",
+]
