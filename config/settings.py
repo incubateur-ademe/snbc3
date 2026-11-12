@@ -170,7 +170,8 @@ def zones_demandees(noms: list[str]) -> list[str]:
 
 # Variante de DJU utilisée pour la correction climatique des sous-secteurs
 # concernés (rapport DJU territoire / moyenne de zone). COSTIC = standard pro.
-TERR_DJU_VARIANT: str = "COSTIC"          # "COSTIC" ou "METEO"
+DJU_VARIANTS: tuple[str, ...] = ("COSTIC", "METEO")
+TERR_DJU_VARIANT: str = "COSTIC"          # une de DJU_VARIANTS
 
 # Zone traitée par défaut.
 TERR_ZONE_DEFAUT: str = "HEXAGONE"

@@ -13,6 +13,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from config.settings import DJU_VARIANTS
+
 
 class OverrideItem(BaseModel):
     code_indicateur: str
@@ -23,7 +25,7 @@ class OverrideItem(BaseModel):
 class TerritorializationRequest(BaseModel):
     annee: int | None = Field(default=None, description="Année de référence (défaut : ANNEE_REF)")
     overrides: list[OverrideItem] = Field(default_factory=list)
-    dju_variant: Literal["COSTIC", "METEO"] | None = Field(
+    dju_variant: Literal[DJU_VARIANTS] | None = Field(
         default=None, description="Méthode de calcul des DJU (défaut : TERR_DJU_VARIANT)")
 
 

@@ -45,7 +45,7 @@ import sys
 from pathlib import Path
 
 from config.logging_config import setup_logging
-from config.settings import ANNEE_REF, INTERIM_DIR, OUTPUT_DIR
+from config.settings import ANNEE_REF, DJU_VARIANTS, INTERIM_DIR, OUTPUT_DIR
 from sources.dju import DJU_SEUIL_CHAUD_DEFAULT, DJU_SEUIL_FROID_DEFAULT
 
 log = logging.getLogger(__name__)
@@ -593,7 +593,7 @@ def build_parser() -> argparse.ArgumentParser:
                         help="Zones à territorialiser (résultats concaténés dans un seul "
                              "fichier). DROM désigne les quatre DROM produits.")
     p_terr.add_argument("--dju-variant", dest="dju_variant", default=TERR_DJU_VARIANT,
-                        choices=["COSTIC", "METEO"])
+                        choices=DJU_VARIANTS)
     p_terr.add_argument("--sortie", default=None, metavar="DOSSIER",
                         help="Dossier des résultats territorialisés (défaut : data/output)")
     p_terr.add_argument("--csv", action="store_true",

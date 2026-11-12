@@ -45,6 +45,7 @@ import yaml
 
 from config.settings import (
     ANNEE_REF,
+    DJU_VARIANTS,
     GROUPES_ZONES,
     ROOT_DIR,
     TERR_DJU_VARIANT,
@@ -674,6 +675,8 @@ def compute_dju_factors(
     Facteurs DJU chaud/froid = DJU(territoire) / DJU(moyenne de zone),
     statiques dans le temps. Retourne (code_epci, corr_dju_chaud, corr_dju_froid).
     """
+    if dju_variant not in DJU_VARIANTS:
+        raise ValueError(f"variante de DJU inconnue (attendu : {', '.join(DJU_VARIANTS)})")
     total_row = zone
     if epci_zone is None:
         epci_zone = epci_de_zone(df_long, zone)
