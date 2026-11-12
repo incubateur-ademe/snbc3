@@ -357,6 +357,9 @@ class TestExpirationCache:
         assert len(appels) == 1  # cache annuel réutilisé
         # Nouveau cache brut (retéléchargé) : le cache annuel est recalculé.
         self._brut(valeur=200.0).to_parquet(ec._RAW_CACHE_PATH)
+        # Horloge Windows au pas de ~15 ms : sans décalage, le brut peut avoir le même
+        # mtime que le cache annuel écrit juste avant, et ce dernier rester valide.
+        self._vieillir(ec._RAW_CACHE_PATH, -1 / 86400)
         valeurs, _ = ec.extract_indicators(2021)
         assert len(appels) == 2 and valeurs.loc["B", "EC_EMIS_TOTAL"] == pytest.approx(160.0)
         # Cache brut expiré : cache annuel recalculé (et brut retéléchargé par _load_raw).
